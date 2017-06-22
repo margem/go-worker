@@ -1,0 +1,20 @@
+version: '2'
+
+services:
+
+  worker:
+    build:
+      context: .
+    restart: always
+    mem_limit: 8m
+    networks:
+      - rabbitmq-net
+    environment:
+      DB_URL: guest/guest@localhost:1521/orcl
+      AMQP_URL: amqp://guest:guest@rabbitmq:5672/
+      AMQP_QUEUE_NAME: calculo-margem
+
+networks:
+  rabbitmq-net:
+    external:
+      name: camelspringboot_rabbitmq-net
