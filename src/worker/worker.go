@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"database/sql"
+	"encoding/json"
 
 	"github.com/streadway/amqp"
 	_ "gopkg.in/rana/ora.v4"
@@ -22,6 +23,9 @@ func main() {
 
 	err = db.Ping()
 	failOnError(err, "Failed to connect to database")
+
+	stmt, err := db.Prepare("update calculo_margem set status = 2 where id = :id")
+	failOnError(err, "Failed to prepare SQL statement")
 
 	conn, err := amqp.Dial(os.Getenv("AMQP_URL"))
 	failOnError(err, "Failed to connect to RabbitMQ")
@@ -64,6 +68,19 @@ func main() {
 	go func() {
 		for d := range msgs {
 			log.Printf("Received a message: %s", d.Body)
+
+			var dat map[string]interface{}
+			err := json.Unmarshal(d.Body, &dat)
+			failOnError(err, "Failed to unmarshal JSON")
+
+			res, err := stmt.Exec(dat["ID"])
+			failOnError(err, "Failed to execute SQL")
+
+			rowCnt, err := res.RowsAffected()
+			failOnError(err, "Failed to get rows affected")
+
+			log.Printf("ID = %.0f, affected = %d", dat["ID"].(float64), rowCnt)
+
 			d.Ack(false)
 		}
 	}()
